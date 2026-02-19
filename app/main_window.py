@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QStackedWidget,
     QMessageBox, QLabel, QFrame, QStyle
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
 
 from app.pages.dashboard_page import DashboardPage
 from app.pages.history_page import HistoryPage
@@ -21,7 +21,7 @@ class MainWindow(QWidget):
         b.setMinimumHeight(56)
         b.setStyleSheet("font-size:18px; text-align:left; padding-left:12px;")
         b.setIcon(self.style().standardIcon(std_icon))
-        b.setIconSize(Qt.QSize(22, 22))
+        b.setIconSize(QSize(22, 22))
         return b
 
     def _build_ui(self):
