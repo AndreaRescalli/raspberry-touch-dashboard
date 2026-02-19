@@ -2,7 +2,7 @@ import psutil
 import pyqtgraph as pg
 import subprocess
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
 from PyQt5.QtCore import QTimer, Qt
 
 from app.widgets.wifi_strength_widget import WifiStrengthWidget
@@ -23,43 +23,46 @@ class SystemMonitorWidget(QWidget):
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        top = QHBoxLayout()
+        # Riga 1: CPU/RAM/TEMP + stato rete
+        row1 = QHBoxLayout()
 
         self.cpu_label = QLabel("CPU: --%")
         self.ram_label = QLabel("RAM: --%")
         self.temp_label = QLabel("TEMP: --°C")
 
+        for lab in (self.cpu_label, self.ram_label, self.temp_label):
+            lab.setStyleSheet("font-size: 16px;")
+            lab.setMinimumWidth(110)
+
         self.net_kind_label = QLabel("NET:")
         self.net_kind_label.setStyleSheet("font-size:16px; color:#94a3b8;")
 
         self.wifi_bars = WifiStrengthWidget()
-        self.net_detail_label = QLabel("")  # es: Ethernet: 192.168.50.2 o "WiFi"
+        self.wifi_bars.setFixedWidth(120)
+
+        self.net_detail_label = QLabel("")
         self.net_detail_label.setStyleSheet("font-size:16px;")
+        self.net_detail_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.net_detail_label.setMinimumWidth(180)
 
+        row1.addWidget(self.cpu_label)
+        row1.addWidget(self.ram_label)
+        row1.addWidget(self.temp_label)
+        row1.addSpacing(8)
+        row1.addWidget(self.net_kind_label)
+        row1.addWidget(self.wifi_bars)
+        row1.addWidget(self.net_detail_label, 1)  # prende lo spazio restante
+
+        layout.addLayout(row1)
+
+        # Riga 2: velocità rete allineata a destra
+        row2 = QHBoxLayout()
         self.net_speed_label = QLabel("0 KB/s ↑ / 0 KB/s ↓")
+        self.net_speed_label.setStyleSheet("font-size: 16px; color:#e2e8f0;")
         self.net_speed_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-        for lab in (self.cpu_label, self.ram_label, self.temp_label, self.net_speed_label):
-            lab.setStyleSheet("font-size: 16px;")
-
-        top.addWidget(self.cpu_label)
-        top.addWidget(self.ram_label)
-        top.addWidget(self.temp_label)
-        top.addSpacing(10)
-        top.addWidget(self.net_kind_label)
-        top.addWidget(self.wifi_bars)
-        top.addWidget(self.net_detail_label)
-        top.addStretch(1)
-        top.addWidget(self.net_speed_label)
-
-        layout.addLayout(top)
-
-        self.graph = pg.PlotWidget()
-        self.graph.setYRange(0, 100)
-        self.graph.showGrid(x=True, y=True, alpha=0.25)
-        self.graph.setLabel("left", "CPU %")
-        self.curve = self.graph.plot([], pen=pg.mkPen(width=2))
-        layout.addWidget(self.graph)
+        row2.addStretch(1)
+        row2.addWidget(self.net_speed_label)
+        layout.addLayout(row2)
 
     def _start_timer(self):
         self.timer = QTimer(self)
@@ -142,10 +145,10 @@ class SystemMonitorWidget(QWidget):
         elif dev_type == "ethernet":
             self.wifi_bars.set_signal(None)
             ip = self.get_ipv4(device) if device else self.get_ipv4("eth0")
-            self.net_detail_label.setText(f"Ethernet: {ip}")
+            self.net_detail_label.setText(f"ETH: {ip}")
         else:
             self.wifi_bars.set_signal(None)
-            self.net_detail_label.setText("disconnesso")
+            self.net_detail_label.setText("OFF")
 
         # Velocità rete totale (tutte le interfacce)
         net = psutil.net_io_counters()
