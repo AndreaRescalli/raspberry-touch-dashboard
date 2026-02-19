@@ -4,9 +4,9 @@ from pathlib import Path
 SETTINGS_PATH = Path.home() / "touchui" / "settings.json"
 
 DEFAULTS = {
-    "sampling_ms": 1000,      # 1 secondo
-    "retention_days": 7,      # tieni 7 giorni
-    "fullscreen": True,       # fullscreen kiosk
+    "dashboard_refresh_ms": 1000,
+    "retention_days": 7,
+    "fullscreen": True,
 }
 
 def load_settings():

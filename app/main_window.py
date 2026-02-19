@@ -73,11 +73,28 @@ class MainWindow(QWidget):
         self.btn_exit.clicked.connect(self.close)
 
     def on_settings_applied(self, settings: dict):
-        # aggiorna sampling nel monitor della dashboard
+        # refresh dashboard live
         try:
-            self.page_dash.monitor.apply_sampling(int(settings.get("sampling_ms", 1000)))
+            self.page_dash.monitor.apply_dashboard_refresh(int(settings.get("dashboard_refresh_ms", 1000)))
         except Exception:
             pass
+
+        # fullscreen live
+        try:
+            want_fullscreen = bool(settings.get("fullscreen", True))
+            self._apply_fullscreen(want_fullscreen)
+        except Exception:
+            pass
+
+    def _apply_fullscreen(self, enabled: bool):
+        # Cambiare flags richiede hide/show
+        self.hide()
+        if enabled:
+            self.setWindowFlags(Qt.FramelessWindowHint)
+            self.showFullScreen()
+        else:
+            self.setWindowFlags(Qt.Window)
+            self.showMaximized()
 
     def closeEvent(self, event):
         reply = QMessageBox.question(

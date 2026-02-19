@@ -1,5 +1,6 @@
 {
-  "sampling_ms": 1000,
+  "dashboard_refresh_ms": 1000,
   "retention_days": 7,
-  "fullscreen": true
+  "fullscreen": true,
+  "sampling_ms": 1000
 }

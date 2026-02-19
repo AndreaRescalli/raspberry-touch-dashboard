@@ -45,7 +45,7 @@ class SystemMonitorWidget(QWidget):
     def _start_timer(self):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_stats)
-        self.timer.start(int(self.settings.get("sampling_ms", 1000)))
+        self.timer.start(int(self.settings.get("dashboard_refresh_ms", 1000)))
 
     def get_cpu_temperature(self):
         try:
@@ -159,6 +159,6 @@ class SystemMonitorWidget(QWidget):
             self._cleanup_counter = 0
             self.db.cleanup_older_than(int(self.settings.get("retention_days", 7)))
 
-    def apply_sampling(self, sampling_ms: int):
-        self.settings["sampling_ms"] = int(sampling_ms)
-        self.timer.setInterval(int(sampling_ms))
+    def apply_dashboard_refresh(self, dashboard_refresh_ms: int):
+        self.settings["dashboard_refresh_ms"] = int(dashboard_refresh_ms)
+        self.timer.setInterval(int(dashboard_refresh_ms))
