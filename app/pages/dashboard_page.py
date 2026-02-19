@@ -5,4 +5,5 @@ class DashboardPage(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.addWidget(SystemMonitorWidget())
+        self.monitor = SystemMonitorWidget()
+        layout.addWidget(self.monitor)

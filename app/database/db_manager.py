@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DB_PATH = Path.home() / "touchui" / "metrics.db"
 
@@ -27,9 +27,17 @@ class DBManager:
         )
         self.conn.commit()
 
+
     def last_n(self, n=600):
         cur = self.conn.cursor()
         cur.execute("SELECT ts,cpu,ram,temp,up_kb,down_kb FROM metrics ORDER BY ts DESC LIMIT ?", (n,))
         rows = cur.fetchall()
         rows.reverse()
         return rows
+
+    def cleanup_older_than(self, days: int):
+        if not days or days <= 0:
+            return
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
+        self.conn.execute("DELETE FROM metrics WHERE ts < ?", (cutoff,))
+        self.conn.commit()

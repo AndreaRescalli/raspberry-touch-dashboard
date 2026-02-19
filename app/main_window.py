@@ -13,7 +13,9 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Raspberry Industrial Dashboard")
-        self.showMaximized()
+        #self.showMaximized()
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.showFullScreen()
         self._build_ui()
 
     def _btn(self, text, std_icon):
@@ -56,6 +58,7 @@ class MainWindow(QWidget):
         self.page_dash = DashboardPage()
         self.page_hist = HistoryPage()
         self.page_sett = SettingsPage()
+        self.page_sett.settings_applied.connect(self.on_settings_applied)
 
         self.stack.addWidget(self.page_dash)
         self.stack.addWidget(self.page_hist)
@@ -68,6 +71,13 @@ class MainWindow(QWidget):
         self.btn_hist.clicked.connect(lambda: self.stack.setCurrentWidget(self.page_hist))
         self.btn_sett.clicked.connect(lambda: self.stack.setCurrentWidget(self.page_sett))
         self.btn_exit.clicked.connect(self.close)
+
+    def on_settings_applied(self, settings: dict):
+        # aggiorna sampling nel monitor della dashboard
+        try:
+            self.page_dash.monitor.apply_sampling(int(settings.get("sampling_ms", 1000)))
+        except Exception:
+            pass
 
     def closeEvent(self, event):
         reply = QMessageBox.question(

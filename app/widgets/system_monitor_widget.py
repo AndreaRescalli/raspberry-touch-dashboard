@@ -5,10 +5,17 @@ import subprocess
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PyQt5.QtCore import QTimer, Qt
 
+from app.settings_store import load_settings
+from app.database.db_manager import DBManager
+
 
 class SystemMonitorWidget(QWidget):
     def __init__(self):
         super().__init__()
+
+        self.settings = load_settings()
+        self.db = DBManager()
+        self._cleanup_counter = 0
 
         self.cpu_series = []
         self.net_sent_prev = None
@@ -38,7 +45,7 @@ class SystemMonitorWidget(QWidget):
     def _start_timer(self):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_stats)
-        self.timer.start(1000)
+        self.timer.start(int(self.settings.get("sampling_ms", 1000)))
 
     def get_cpu_temperature(self):
         try:
@@ -142,3 +149,16 @@ class SystemMonitorWidget(QWidget):
             f"{down_kb:.0f} KB/s ↓  {up_kb:.0f} KB/s ↑"
         )
         self.status_label.setText(status_html)
+
+        # salva su SQLite
+        self.db.insert(cpu=cpu, ram=ram, temp=temp, up_kb=up_kb, down_kb=down_kb)
+
+        # retention (pulizia ogni ~60 campioni)
+        self._cleanup_counter += 1
+        if self._cleanup_counter >= 60:
+            self._cleanup_counter = 0
+            self.db.cleanup_older_than(int(self.settings.get("retention_days", 7)))
+
+    def apply_sampling(self, sampling_ms: int):
+        self.settings["sampling_ms"] = int(sampling_ms)
+        self.timer.setInterval(int(sampling_ms))

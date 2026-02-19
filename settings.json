@@ -1,0 +1,5 @@
+{
+  "sampling_ms": 1000,
+  "retention_days": 7,
+  "fullscreen": true
+}
