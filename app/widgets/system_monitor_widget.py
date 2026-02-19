@@ -161,8 +161,8 @@ class SystemMonitorWidget(QWidget):
         self.net_recv_prev = net.bytes_recv
 
         up_kb = up_bps / 1024.0
-    down_kb = down_bps / 1024.0
-    self.net_speed_label.setText(f"{up_kb:.0f} KB/s ↑ / {down_kb:.0f} KB/s ↓")
+        down_kb = down_bps / 1024.0
+        self.net_speed_label.setText(f"{up_kb:.0f} KB/s ↑ / {down_kb:.0f} KB/s ↓")
 
-    # salva su SQLite
-    self.db.insert(cpu=cpu, ram=ram, temp=(temp if temp is not None else -1), up_kb=up_kb, down_kb=down_kb)
+        # salva su SQLite
+        self.db.insert(cpu=cpu, ram=ram, temp=(temp if temp is not None else -1), up_kb=up_kb, down_kb=down_kb)
