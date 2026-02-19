@@ -2,17 +2,14 @@ import psutil
 import pyqtgraph as pg
 import subprocess
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PyQt5.QtCore import QTimer, Qt
-
-from app.widgets.wifi_strength_widget import WifiStrengthWidget
-from app.database.db_manager import DBManager
 
 
 class SystemMonitorWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.db = DBManager()
+
         self.cpu_series = []
         self.net_sent_prev = None
         self.net_recv_prev = None
@@ -23,46 +20,20 @@ class SystemMonitorWidget(QWidget):
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        # Riga 1: CPU/RAM/TEMP + stato rete
-        row1 = QHBoxLayout()
+        # Barra stato compatta (una riga)
+        self.status_label = QLabel("Loading...")
+        self.status_label.setStyleSheet("font-size:14px; color:#cbd5e1;")
+        self.status_label.setAlignment(Qt.AlignLeft)
+        self.status_label.setTextFormat(Qt.RichText)  # per colorare solo la temp
+        layout.addWidget(self.status_label)
 
-        self.cpu_label = QLabel("CPU: --%")
-        self.ram_label = QLabel("RAM: --%")
-        self.temp_label = QLabel("TEMP: --°C")
-
-        for lab in (self.cpu_label, self.ram_label, self.temp_label):
-            lab.setStyleSheet("font-size: 16px;")
-            lab.setMinimumWidth(110)
-
-        self.net_kind_label = QLabel("NET:")
-        self.net_kind_label.setStyleSheet("font-size:16px; color:#94a3b8;")
-
-        self.wifi_bars = WifiStrengthWidget()
-        self.wifi_bars.setFixedWidth(120)
-
-        self.net_detail_label = QLabel("")
-        self.net_detail_label.setStyleSheet("font-size:16px;")
-        self.net_detail_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.net_detail_label.setMinimumWidth(180)
-
-        row1.addWidget(self.cpu_label)
-        row1.addWidget(self.ram_label)
-        row1.addWidget(self.temp_label)
-        row1.addSpacing(8)
-        row1.addWidget(self.net_kind_label)
-        row1.addWidget(self.wifi_bars)
-        row1.addWidget(self.net_detail_label, 1)  # prende lo spazio restante
-
-        layout.addLayout(row1)
-
-        # Riga 2: velocità rete allineata a destra
-        row2 = QHBoxLayout()
-        self.net_speed_label = QLabel("0 KB/s ↑ / 0 KB/s ↓")
-        self.net_speed_label.setStyleSheet("font-size: 16px; color:#e2e8f0;")
-        self.net_speed_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        row2.addStretch(1)
-        row2.addWidget(self.net_speed_label)
-        layout.addLayout(row2)
+        # Grafico CPU
+        self.graph = pg.PlotWidget()
+        self.graph.setYRange(0, 100)
+        self.graph.showGrid(x=True, y=True, alpha=0.25)
+        self.graph.setLabel("left", "CPU %")
+        self.curve = self.graph.plot([], pen=pg.mkPen(width=2))
+        layout.addWidget(self.graph)
 
     def _start_timer(self):
         self.timer = QTimer(self)
@@ -72,7 +43,7 @@ class SystemMonitorWidget(QWidget):
     def get_cpu_temperature(self):
         try:
             temps = psutil.sensors_temperatures()
-            if "cpu_thermal" in temps:
+            if "cpu_thermal" in temps and temps["cpu_thermal"]:
                 return temps["cpu_thermal"][0].current
         except Exception:
             pass
@@ -112,60 +83,62 @@ class SystemMonitorWidget(QWidget):
                 return a.address
         return ""
 
+    def temp_color(self, temp_c):
+        if temp_c is None:
+            return "#cbd5e1"  # default
+        if temp_c < 55:
+            return "#22c55e"  # green
+        if temp_c < 70:
+            return "#f59e0b"  # orange
+        return "#ef4444"      # red
+
     def update_stats(self):
         cpu = psutil.cpu_percent(interval=None)
         ram = psutil.virtual_memory().percent
         temp = self.get_cpu_temperature()
 
-        self.cpu_label.setText(f"CPU: {cpu:.0f}%")
-        self.ram_label.setText(f"RAM: {ram:.0f}%")
-
-        if temp is not None:
-            self.temp_label.setText(f"TEMP: {temp:.1f}°C")
-            if temp < 55:
-                self.temp_label.setStyleSheet("font-size:16px; color:#22c55e;")
-            elif temp < 70:
-                self.temp_label.setStyleSheet("font-size:16px; color:#f59e0b;")
-            else:
-                self.temp_label.setStyleSheet("font-size:16px; color:#ef4444;")
-        else:
-            self.temp_label.setText("TEMP: N/A")
-
+        # Grafico CPU
         self.cpu_series.append(cpu)
         if len(self.cpu_series) > 60:
             self.cpu_series.pop(0)
         self.curve.setData(self.cpu_series)
 
+        # Rete (se WiFi -> mostra WiFi%, se Ethernet -> ETH: IP)
         device, dev_type = self.get_active_network()
 
         if dev_type == "wifi":
             sig = self.get_wifi_signal_percent()
-            self.wifi_bars.set_signal(sig)
-            self.net_detail_label.setText("WiFi")
+            net_info = f"WiFi: {sig}%" if sig is not None else "WiFi"
         elif dev_type == "ethernet":
-            self.wifi_bars.set_signal(None)
             ip = self.get_ipv4(device) if device else self.get_ipv4("eth0")
-            self.net_detail_label.setText(f"ETH: {ip}")
+            net_info = f"ETH: {ip}" if ip else "ETH"
         else:
-            self.wifi_bars.set_signal(None)
-            self.net_detail_label.setText("OFF")
+            net_info = "Offline"
 
-        # Velocità rete totale (tutte le interfacce)
+        # Velocità rete (totale)
         net = psutil.net_io_counters()
         if self.net_sent_prev is None:
             self.net_sent_prev = net.bytes_sent
             self.net_recv_prev = net.bytes_recv
-            self.net_speed_label.setText("0 KB/s ↑ / 0 KB/s ↓")
             return
 
-        up_bps = net.bytes_sent - self.net_sent_prev
-        down_bps = net.bytes_recv - self.net_recv_prev
+        up_kb = (net.bytes_sent - self.net_sent_prev) / 1024.0
+        down_kb = (net.bytes_recv - self.net_recv_prev) / 1024.0
         self.net_sent_prev = net.bytes_sent
         self.net_recv_prev = net.bytes_recv
 
-        up_kb = up_bps / 1024.0
-        down_kb = down_bps / 1024.0
-        self.net_speed_label.setText(f"{up_kb:.0f} KB/s ↑ / {down_kb:.0f} KB/s ↓")
+        # Temperatura con colore
+        if temp is None:
+            temp_txt = "TEMP: N/A"
+        else:
+            temp_txt = f"TEMP: {temp:.1f}°C"
+        tcol = self.temp_color(temp)
 
-        # salva su SQLite
-        self.db.insert(cpu=cpu, ram=ram, temp=(temp if temp is not None else -1), up_kb=up_kb, down_kb=down_kb)
+        # Barra compatta (HTML per colorare solo la temp)
+        status_html = (
+            f"CPU {cpu:.0f}%  |  RAM {ram:.0f}%  |  "
+            f"<span style='color:{tcol}; font-weight:600;'>{temp_txt}</span>  |  "
+            f"{net_info}  |  "
+            f"{down_kb:.0f} KB/s ↓  {up_kb:.0f} KB/s ↑"
+        )
+        self.status_label.setText(status_html)
